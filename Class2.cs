@@ -73,25 +73,25 @@ namespace VirtualStorage
         {
             UpdateVesselResources();
         }
-        //override public void OnLoad(ConfigNode DataStorage) //Deserializing list
-        //{
-        //    string KeysValue = null;
-        //    string ValuesValue = null;
-        //    DataStorage.TryGetValue("Keys", ref KeysValue);
-        //    DataStorage.TryGetValue("Values", ref ValuesValue);
-        //    string[] keys = KeysValue.Split(',');
-        //    string[] values = ValuesValue.Split(',');
-        //    for (int i = 0; i < keys.Length; i++)
-        //    {
-        //        Resources.Add(keys[i], float.Parse(values[i]));
-        //    }
-        //    UpdateVesselResources();
-        //}
-        //override public void OnSave(ConfigNode DataStorage) //Serializing list
-        //{
-        //    DataStorage.AddValue("Keys", string.Join(",", Resources.Keys));
-        //    DataStorage.AddValue("Values",string.Join(",", Resources.Values));
-        //}
+        override public void OnLoad(ConfigNode DataStorage) //Deserializing list
+        {
+            string KeysValue = null;
+            string ValuesValue = null;
+            DataStorage.TryGetValue("Keys", ref KeysValue);
+            DataStorage.TryGetValue("Values", ref ValuesValue);
+            string[] keys = KeysValue.Split(',');
+            string[] values = ValuesValue.Split(',');
+            for (int i = 0; i < keys.Length; i++)
+            {
+                Resources.Add(keys[i], float.Parse(values[i]));
+            }
+            UpdateVesselResources();
+        }
+        override public void OnSave(ConfigNode DataStorage) //Serializing list
+        {
+            DataStorage.AddValue("Keys", string.Join(",", Resources.Keys));
+            DataStorage.AddValue("Values", string.Join(",", Resources.Values));
+        }
         #endregion
         #region Methods
         [KSPEvent(guiActive = true, guiName = "Insert Resource", isPersistent = true)]
