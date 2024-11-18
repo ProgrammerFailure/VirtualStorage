@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Expansions.Missions.Flow;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 namespace VirtualStorage
 {
-    public class VirtualStorage2 : PartModule
+    public class VirtualStorage : PartModule
     {
         #region Variables
         //Serialization lists
@@ -16,6 +17,8 @@ namespace VirtualStorage
         string ResourceAmounts;
 
         //Current values
+        [KSPField(isPersistant = false, guiActive = true, guiName = "Current Resource Amounts", groupDisplayName = "Virtual Storage Resources", groupName = "VirtualStorageResources")]
+        string guiStorageCurrentResourceAmount;
         string CurrentResource
         {
             get
@@ -23,12 +26,8 @@ namespace VirtualStorage
                 Debug.Log("VirtualStorage: CurrentResource fetched, value = " + VesselResourceList[CurrentResourceCycler].resourceName);
                 return VesselResourceList[CurrentResourceCycler].resourceName;
             }
-            set
-            {
-                string a = "blue";
-            }
         }
-        [KSPField(isPersistant = true, guiActive = true, guiName = "Current Resourcs"), UI_Cycle(scene = UI_Scene.Flight, stateNames = new string[] {"test", "blue"})]
+        [KSPField(isPersistant = true, guiActive = true, guiName = "Current Resourcs", groupDisplayName = "Virtual Storage", groupName = "VirtualStorage"), UI_Cycle(scene = UI_Scene.Flight, stateNames = new string[] {"test", "blue"})]
         int CurrentResourceCycler = 0;
 
         [KSPField(isPersistant = true, guiName = "Request Amount", groupName = "VirtualStorage", groupDisplayName = "Virtual Storage", guiFormat = "F3", guiActive = true), UI_FloatRange(minValue = 0, maxValue = 1000, stepIncrement = 1)]
@@ -72,6 +71,8 @@ namespace VirtualStorage
         public void Start()
         {
             UpdateVesselResources();
+            ((UI_Cycle)Fields["CurrentResourceCycler"].uiControlFlight).onFieldChanged = UpdateGUIResourceAmount;
+
         }
         override public void OnLoad(ConfigNode DataStorage) //Deserializing list
         {
@@ -94,27 +95,31 @@ namespace VirtualStorage
         }
         #endregion
         #region Methods
-        [KSPEvent(guiActive = true, guiName = "Insert Resource", isPersistent = true)]
+        [KSPEvent(guiActive = true, guiName = "Insert Resource", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         public void AddResourceToStorage()
         {
             if (Resources.ContainsKey(CurrentResource) && VesselCurrentResourceAmount >= RequestAmount)
             {
                 this.vessel.RequestResource(this.part, CurrentResourceHash, RequestAmount, true);
                 Resources[CurrentResource] += RequestAmount;
+                UpdateGUIResourceAmount();
             }
             else if (VesselCurrentResourceAmount >= RequestAmount)
             {
                 this.vessel.RequestResource(this.part, CurrentResourceHash, RequestAmount, true);
                 Resources.Add(CurrentResource, RequestAmount);
+                UpdateGUIResourceAmount();
             }
             else
             {
+                UpdateGUIResourceAmount();
                 Debug.Log(Time.realtimeSinceStartup + "- Virtual Storage mod: Not enough " + CurrentResource + " in the vessel");
             }
             Debug.Log(Resources.Keys);
             Debug.Log(Resources.Values);
+
         }
-        [KSPEvent(guiActive = true, guiName = "Extract Resource", isPersistent = true)]
+        [KSPEvent(guiActive = true, guiName = "Extract Resource", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         private void RemoveResourceFromStorage()
         {
             //if (Resources.ContainsKey(CurrentResource))
@@ -160,9 +165,10 @@ namespace VirtualStorage
             }
             Debug.Log(Resources.Keys);
             Debug.Log(Resources.Values);
+            UpdateGUIResourceAmount();
         }
 
-        [KSPEvent(guiActive = true, guiName = "Virtual Storage- UpdateVesselResources", isPersistent = true)]
+        [KSPEvent(guiActive = true, guiName = "Virtual Storage- UpdateVesselResources", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         private void UpdateVesselResources()
         {
             VesselResourceList.Clear();
@@ -184,7 +190,28 @@ namespace VirtualStorage
             cycler.stateNames = VesselResourceList.Select(r => r.resourceName).ToArray();
 
             //This section sets the stateNames to the resourceName fields from VesselResourceList.
+            UpdateGUIResourceAmount();
         }
+
+        private void UpdateGUIResourceAmount(BaseField field = null, object oldValue=null)
+        {
+            if (Resources.Count > 0)
+            {
+                string _field = "";
+                Fields["guiStorageCurrentResourceAmount"].guiActive = true;
+                foreach (string key in Resources.Keys)
+                {
+                    _field += $"\n{key}: {Resources[key]}";
+                }
+                guiStorageCurrentResourceAmount = _field;
+            }
+            else
+            {
+                Fields["guiStorageCurrentResourceAmount"].guiActive = false;
+                guiStorageCurrentResourceAmount = null;
+            }
+        }
+
         #endregion
     }
 }
