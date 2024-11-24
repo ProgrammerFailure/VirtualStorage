@@ -32,6 +32,9 @@ namespace VirtualStorage
 
         [KSPField(isPersistant = true, guiName = "Request Amount", groupName = "VirtualStorage", groupDisplayName = "Virtual Storage", guiFormat = "F3", guiActive = true), UI_FloatRange(minValue = 0, maxValue = 1000, stepIncrement = 1)]
         float RequestAmount = 0;
+
+        [KSPField(isPersistant = true, guiName = "Storage filled", groupName = "VirtualStorage", groupDisplayName = "Virtual Storage", guiActive = true)]
+        string StorageDisplayString;
         float StorageCurrentResourceAmount
         {
             get
@@ -66,6 +69,10 @@ namespace VirtualStorage
         //Actual list
         Dictionary<string, float> Resources = new Dictionary<string, float>();
         List<PartResource> VesselResourceList = new List<PartResource>();
+
+        //Part properties
+        [KSPField(isPersistant = true)]
+        float MaxStorage = 1000;
         #endregion
         #region Triggers
         public void Start()
@@ -76,17 +83,33 @@ namespace VirtualStorage
         }
         override public void OnLoad(ConfigNode DataStorage) //Deserializing list
         {
-            string KeysValue = null;
-            string ValuesValue = null;
-            DataStorage.TryGetValue("Keys", ref KeysValue);
-            DataStorage.TryGetValue("Values", ref ValuesValue);
-            string[] keys = KeysValue.Split(',');
-            string[] values = ValuesValue.Split(',');
-            for (int i = 0; i < keys.Length; i++)
+            if (HighLogic.LoadedSceneIsFlight)
             {
-                Resources.Add(keys[i], float.Parse(values[i]));
+                string KeysValue = null;
+                string ValuesValue = null;
+                DataStorage.TryGetValue("Keys", ref KeysValue);
+                DataStorage.TryGetValue("Values", ref ValuesValue);
+                Debug.Log($"OnLoad ConfigNode: {DataStorage}");
+                string[] keys = KeysValue != null ? KeysValue.Split(',') : null;
+                string[] values = ValuesValue != null ? ValuesValue.Split(',') : null;
+
+                if (keys != null && values != null && keys.Length == values.Length)
+                {
+                    for (int i = 0; i < keys.Length; i++)
+                    {
+                        Debug.Log($"Virtual Storage mod, values list: {values}");
+                        Debug.Log($"Virtual Storage mod, values list: {keys}");
+                        Resources.Add(keys[i], float.Parse(values[i]));
+                    }
+                }
+                else
+                {
+                    // Handle mismatch or null scenario
+                    Debug.LogError("Keys and values are not properly initialized or have mismatched lengths.");
+                }
+
+                UpdateVesselResources();
             }
-            UpdateVesselResources();
         }
         override public void OnSave(ConfigNode DataStorage) //Serializing list
         {
@@ -98,13 +121,13 @@ namespace VirtualStorage
         [KSPEvent(guiActive = true, guiName = "Insert Resource", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         public void AddResourceToStorage()
         {
-            if (Resources.ContainsKey(CurrentResource) && VesselCurrentResourceAmount >= RequestAmount)
+            if (Resources.ContainsKey(CurrentResource) && VesselCurrentResourceAmount >= RequestAmount && (Resources.Values.Sum() + RequestAmount) <= MaxStorage)
             {
                 this.vessel.RequestResource(this.part, CurrentResourceHash, RequestAmount, true);
                 Resources[CurrentResource] += RequestAmount;
                 UpdateGUIResourceAmount();
             }
-            else if (VesselCurrentResourceAmount >= RequestAmount)
+            else if (VesselCurrentResourceAmount >= RequestAmount && (Resources.Values.Sum() + RequestAmount) <= MaxStorage)
             {
                 this.vessel.RequestResource(this.part, CurrentResourceHash, RequestAmount, true);
                 Resources.Add(CurrentResource, RequestAmount);
@@ -148,12 +171,12 @@ namespace VirtualStorage
                     this.vessel.RequestResource(this.part, CurrentResourceHash, -RequestAmount, true);
                     Resources[CurrentResource] -= RequestAmount;
                 }
-                if (Resources[CurrentResource] == RequestAmount)
+                else if (Resources[CurrentResource] == RequestAmount)
                 {
                     this.vessel.RequestResource(this.part, CurrentResourceHash, -RequestAmount, true);
                     Resources.Remove(CurrentResource);
                 }
-                if (Resources[CurrentResource] < RequestAmount)
+                else //Resources[CurrentResource] < RequestAmount
                 {
                     Debug.Log(Time.realtimeSinceStartup + "- Virtual Storage mod: Not enough " + CurrentResource + " in Virtual Storage");
                 }
@@ -208,8 +231,9 @@ namespace VirtualStorage
             else
             {
                 Fields["guiStorageCurrentResourceAmount"].guiActive = false;
-                guiStorageCurrentResourceAmount = null;
+                guiStorageCurrentResourceAmount = "";
             }
+            StorageDisplayString = $"{Resources.Values.Sum()}/{MaxStorage}";
         }
 
         #endregion
