@@ -12,10 +12,6 @@ namespace VirtualStorage
     public class VirtualStorage : PartModule
     {
         #region Variables
-        //Serialization lists
-        string ResourceList;
-        string ResourceAmounts;
-
         //Current values
         [KSPField(isPersistant = false, guiActive = true, guiName = "Current Resource Amounts", groupDisplayName = "Virtual Storage Resources", groupName = "VirtualStorageResources")]
         string guiStorageCurrentResourceAmount;
