@@ -1,4 +1,5 @@
 ﻿using Expansions.Missions.Flow;
+using KSP.UI.Screens.DebugToolbar.Screens.Cheats;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UI;
 namespace VirtualStorage
 {
     public class VirtualStorage : PartModule
@@ -23,14 +25,14 @@ namespace VirtualStorage
                 return VesselResourceList[CurrentResourceCycler].resourceName;
             }
         }
-        [KSPField(isPersistant = true, guiActive = true, guiName = "Current Resourcs", groupDisplayName = "Virtual Storage", groupName = "VirtualStorage"), UI_Cycle(scene = UI_Scene.Flight, stateNames = new string[] {"test", "blue"})]
+        [KSPField(isPersistant = true, guiActive = true, guiName = "Current Resourcs", groupDisplayName = "Virtual Storage", groupName = "VirtualStorage"), UI_Cycle(scene = UI_Scene.Flight, stateNames = new string[] { "test", "blue" })]
         int CurrentResourceCycler = 0;
 
         [KSPField(isPersistant = true, guiName = "Request Amount", groupName = "VirtualStorage", groupDisplayName = "Virtual Storage", guiFormat = "F3", guiActive = true), UI_FloatRange(minValue = 0, maxValue = 1000, stepIncrement = 1)]
         float RequestAmount = 0;
 
         [KSPField(isPersistant = true, guiName = "Storage filled", groupName = "VirtualStorage", groupDisplayName = "Virtual Storage", guiActive = true)]
-        string StorageDisplayString;
+        string StorageDisplayString = "N/A";
         float StorageCurrentResourceAmount
         {
             get
@@ -65,47 +67,52 @@ namespace VirtualStorage
         //Actual list
         Dictionary<string, float> Resources = new Dictionary<string, float>();
         List<PartResource> VesselResourceList = new List<PartResource>();
+        string[] ResourceBlacklist;
 
         //Part properties
-        [KSPField(isPersistant = true)]
-        float MaxStorage = 1000;
+        [KSPField(isPersistant = false, guiActive = true)]
+        public float MaxStorage = 500;
+        [KSPField(isPersistant = false, guiActive = true)]
+        public string ResourceBlacklistString = "N/A";
+
         #endregion
         #region Triggers
         public void Start()
         {
             UpdateVesselResources();
             ((UI_Cycle)Fields["CurrentResourceCycler"].uiControlFlight).onFieldChanged = UpdateGUIResourceAmount;
-
+            ResourceBlacklist = ResourceBlacklistString.Split(',');
         }
         override public void OnLoad(ConfigNode DataStorage) //Deserializing list
         {
-            if (HighLogic.LoadedSceneIsFlight)
+            if (!HighLogic.LoadedSceneIsFlight)
             {
-                string KeysValue = null;
-                string ValuesValue = null;
-                DataStorage.TryGetValue("Keys", ref KeysValue);
-                DataStorage.TryGetValue("Values", ref ValuesValue);
-                Debug.Log($"OnLoad ConfigNode: {DataStorage}");
-                string[] keys = KeysValue != null ? KeysValue.Split(',') : null;
-                string[] values = ValuesValue != null ? ValuesValue.Split(',') : null;
-
-                if (keys != null && values != null && keys.Length == values.Length)
-                {
-                    for (int i = 0; i < keys.Length; i++)
-                    {
-                        Debug.Log($"Virtual Storage mod, values list: {values}");
-                        Debug.Log($"Virtual Storage mod, values list: {keys}");
-                        Resources.Add(keys[i], float.Parse(values[i]));
-                    }
-                }
-                else
-                {
-                    // Handle mismatch or null scenario
-                    Debug.LogError("Keys and values are not properly initialized or have mismatched lengths.");
-                }
-
-                UpdateVesselResources();
+                return;
             }
+            string KeysValue = null;
+            string ValuesValue = null;
+            DataStorage.TryGetValue("Keys", ref KeysValue);
+            DataStorage.TryGetValue("Values", ref ValuesValue);
+            Debug.Log($"OnLoad ConfigNode: {DataStorage}");
+            string[] keys = KeysValue != null ? KeysValue.Split(',') : null;
+            string[] values = ValuesValue != null ? ValuesValue.Split(',') : null;
+
+            if (keys != null && values != null && keys.Length == values.Length)
+            {
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    Debug.Log($"Virtual Storage mod, values list: {values}");
+                    Debug.Log($"Virtual Storage mod, values list: {keys}");
+                    Resources.Add(keys[i], float.Parse(values[i]));
+                }
+            }
+            else
+            {
+                // Handle mismatch or null scenario
+                Debug.LogError("Keys and values are not properly initialized or have mismatched lengths.");
+            }
+
+            UpdateVesselResources();
         }
         override public void OnSave(ConfigNode DataStorage) //Serializing list
         {
@@ -117,6 +124,9 @@ namespace VirtualStorage
         [KSPEvent(guiActive = true, guiName = "Insert Resource", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         public void AddResourceToStorage()
         {
+            Debug.Log($"Virtual Storage mod, ResourceBlacklistString: {ResourceBlacklistString}\n ResourceBlacklist: {ResourceBlacklist}");
+            if (ResourceBlacklist.Contains(CurrentResource)) { PopupBox($"{CurrentResource} is blacklisted for this Virtual Storage. Full blacklist: {ResourceBlacklistString}"); Debug.Log($"Virtual Storage mod: {CurrentResource} is blacklisted"); return; }
+            if (RequestAmount <= 0) { return; }
             if (Resources.ContainsKey(CurrentResource) && VesselCurrentResourceAmount >= RequestAmount && (Resources.Values.Sum() + RequestAmount) <= MaxStorage)
             {
                 this.vessel.RequestResource(this.part, CurrentResourceHash, RequestAmount, true);
@@ -129,10 +139,14 @@ namespace VirtualStorage
                 Resources.Add(CurrentResource, RequestAmount);
                 UpdateGUIResourceAmount();
             }
-            else
+            else if ((VesselCurrentResourceAmount >= RequestAmount) && (Resources.Values.Sum() + RequestAmount) > MaxStorage)
             {
-                UpdateGUIResourceAmount();
-                Debug.Log(Time.realtimeSinceStartup + "- Virtual Storage mod: Not enough " + CurrentResource + " in the vessel");
+                PopupBox($"Not enough free virtual storage");
+            }
+            else
+            { 
+                PopupBox($"Not enough {CurrentResource} in the vessel");
+                Debug.Log($"Time.realtimeSinceStartup- Virtual Storage mod: Not enough {CurrentResource} in the vessel");
             }
             Debug.Log(Resources.Keys);
             Debug.Log(Resources.Values);
@@ -174,13 +188,15 @@ namespace VirtualStorage
                 }
                 else //Resources[CurrentResource] < RequestAmount
                 {
-                    Debug.Log(Time.realtimeSinceStartup + "- Virtual Storage mod: Not enough " + CurrentResource + " in Virtual Storage");
+                    PopupBox($"Not enough {CurrentResource} in Virtual Storage");
+                    Debug.Log($"{Time.realtimeSinceStartup}- Virtual Storage mod: Not enough {CurrentResource} in Virtual Storage");
                 }
 
             }
             else
             {
-                Debug.Log(Time.realtimeSinceStartup + "- Virtual Storage mod: Virtual Storage does not contain " + CurrentResource);
+                PopupBox($"Virtual Storage does not contain {CurrentResource}");
+                Debug.Log($"{Time.realtimeSinceStartup}- Virtual Storage mod: Virtual Storage does not contain {CurrentResource}");
             }
             Debug.Log(Resources.Keys);
             Debug.Log(Resources.Values);
@@ -190,6 +206,7 @@ namespace VirtualStorage
         [KSPEvent(guiActive = true, guiName = "Virtual Storage- UpdateVesselResources", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         private void UpdateVesselResources()
         {
+            if (!HighLogic.LoadedSceneIsFlight) { return; }
             VesselResourceList.Clear();
             foreach (Part part in this.vessel.parts)
             {
@@ -212,7 +229,7 @@ namespace VirtualStorage
             UpdateGUIResourceAmount();
         }
 
-        private void UpdateGUIResourceAmount(BaseField field = null, object oldValue=null)
+        private void UpdateGUIResourceAmount(BaseField field = null, object oldValue = null)
         {
             if (Resources.Count > 0)
             {
@@ -232,6 +249,23 @@ namespace VirtualStorage
             StorageDisplayString = $"{Resources.Values.Sum()}/{MaxStorage}";
         }
 
+        private void PopupBox(string message)
+        {
+            PopupDialog.SpawnPopupDialog(
+                new MultiOptionDialog(
+                    "VirtualStorageDialog", // Unique dialog ID
+                    null, // No additional content, as we use DialogGUILabel below
+                    "Virtual Storage Mod", // Title of the dialog
+                    HighLogic.UISkin, // Use the KSP UI skin
+                    new Rect(0.5f, 0.5f, 300f, 200f), // Centered, with initial size
+                    new DialogGUIContentSizer(ContentSizeFitter.FitMode.PreferredSize, ContentSizeFitter.FitMode.MinSize), // Adjust size to fit content
+                    new DialogGUILabel(message), // Display the variable message
+                    new DialogGUIButton("OK", () => { }, true) // OK button that dismisses the dialog
+                ),
+                false, // Don't pause the game when the dialog appears
+                HighLogic.UISkin // Use the KSP UI skin for the popup
+            );
+        }
         #endregion
     }
 }
