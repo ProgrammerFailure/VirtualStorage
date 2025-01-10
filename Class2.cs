@@ -97,22 +97,16 @@ namespace VirtualStorage
             string[] keys = KeysValue != null ? KeysValue.Split(',') : null;
             string[] values = ValuesValue != null ? ValuesValue.Split(',') : null;
 
-            if (keys != null && values != null && keys.Length == values.Length)
+            for (int i = 0; i < keys.Length; i++)
             {
-                for (int i = 0; i < keys.Length; i++)
-                {
-                    Debug.Log($"Virtual Storage mod, values list: {values}");
-                    Debug.Log($"Virtual Storage mod, values list: {keys}");
-                    Resources.Add(keys[i], float.Parse(values[i]));
-                }
-            }
-            else
-            {
-                // Handle mismatch or null scenario
-                Debug.LogError("Keys and values are not properly initialized or have mismatched lengths.");
+                float.TryParse(keys[i], out float value);
+                Debug.Log($"Virtual Storage mod, values list: {values}");
+                Debug.Log($"Virtual Storage mod, values list: {keys}");
+                Resources.Add(keys[i], value);
             }
 
             UpdateVesselResources();
+            UpdateGUIResourceAmount();
         }
         override public void OnSave(ConfigNode DataStorage) //Serializing list
         {
@@ -231,6 +225,17 @@ namespace VirtualStorage
 
         private void UpdateGUIResourceAmount(BaseField field = null, object oldValue = null)
         {
+            List<string> keysToRemove = new List<string>();
+            foreach (string key in Resources.Keys)
+            {
+                if (Resources[key] <= 0) { keysToRemove.Add(key); }
+            }
+
+            foreach (string keyToRemove in keysToRemove)
+            {
+                Resources.Remove(keyToRemove);
+            }
+
             if (Resources.Count > 0)
             {
                 string _field = "";
