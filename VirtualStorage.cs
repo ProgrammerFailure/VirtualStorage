@@ -15,6 +15,8 @@ namespace VirtualStorage
     {
         #region Variables
         //Current values
+        [KSPField(isPersistant = true, guiActive = true, guiName = "Virtual Storage Deploy State: ", groupName = "VirtualStorage", groupDisplayName = "Virtual Storage"), UI_Toggle(enabledText = "Deployed", disabledText = "Not Deployed")]
+        bool storageDeployed = false;
         [KSPField(isPersistant = false, guiActive = true, guiName = "Current Resource Amounts", groupDisplayName = "Virtual Storage Resources", groupName = "VirtualStorageResources")]
         string guiStorageCurrentResourceAmount;
         string CurrentResource
@@ -81,6 +83,7 @@ namespace VirtualStorage
         {
             UpdateVesselResources();
             ((UI_Cycle)Fields["CurrentResourceCycler"].uiControlFlight).onFieldChanged = UpdateGUIResourceAmount;
+            ((UI_Toggle)Fields["storageDeployed"].uiControlFlight).onFieldChanged = DeployStorage;
             ResourceBlacklist = ResourceBlacklistString.Split(',');
         }
         override public void OnLoad(ConfigNode DataStorage) //Deserializing list
@@ -214,6 +217,15 @@ namespace VirtualStorage
             UpdateGUIResourceAmount();
         }
 
+        private void DeployStorage(BaseField field = null, object oldValue = null)
+        {
+            if (storageDeployed)
+            {
+                Fields["storageDeployed"].guiActive = false;
+                UpdateGUIResourceAmount();
+            }
+        }
+
         private void UpdateGUIResourceAmount(BaseField field = null, object oldValue = null)
         {
             List<string> keysToRemove = new List<string>();
@@ -227,6 +239,25 @@ namespace VirtualStorage
             foreach (string key in keysToRemove)
             {
                 Resources.Remove(key);
+            }
+            if (!storageDeployed)
+            {
+                Fields["guiStorageCurrentResourceAmount"].guiActive = false;
+                Fields["CurrentResourceCycler"].guiActive = false;
+                Fields["StorageDisplayString"].guiActive = false;
+                Fields["RequestAmount"].guiActive = false;
+                Events["AddResourceToStorage"].guiActive = false;
+                Events["RemoveResourceFromStorage"].guiActive = false;
+                return;
+            }
+            else
+            {
+                Fields["guiStorageCurrentResourceAmount"].guiActive = true;
+                Fields["CurrentResourceCycler"].guiActive = true;
+                Fields["StorageDisplayString"].guiActive = true;
+                Fields["RequestAmount"].guiActive = true;
+                Events["AddResourceToStorage"].guiActive = true;
+                Events["RemoveResourceFromStorage"].guiActive = true;
             }
             if (Resources.Count > 0)
             {
