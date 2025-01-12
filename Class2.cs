@@ -85,33 +85,41 @@ namespace VirtualStorage
         }
         override public void OnLoad(ConfigNode DataStorage) //Deserializing list
         {
-            if (!HighLogic.LoadedSceneIsFlight)
+            Debug.Log($"{Time.realtimeSinceStartup}: OnLoad Called. Scene: {HighLogic.LoadedScene}");
+            Debug.Log($"{Time.realtimeSinceStartup}: OnLoad Called. Flight");
+            if (DataStorage.HasNode("VS_DataStorage"))
             {
-                return;
-            }
-            string KeysValue = null;
-            string ValuesValue = null;
-            DataStorage.TryGetValue("Keys", ref KeysValue);
-            DataStorage.TryGetValue("Values", ref ValuesValue);
-            Debug.Log($"OnLoad ConfigNode: {DataStorage}");
-            string[] keys = KeysValue != null ? KeysValue.Split(',') : null;
-            string[] values = ValuesValue != null ? ValuesValue.Split(',') : null;
+                ConfigNode storageNode = DataStorage.GetNode("VS_DataStorage");
+                string KeysValue = null;
+                string ValuesValue = null;
+                storageNode.TryGetValue("VS_Keys", ref KeysValue);
+                storageNode.TryGetValue("VS_Values", ref ValuesValue);
+                Debug.Log($"{Time.realtimeSinceStartup}: In OnLoad. DataStorage.Keys={KeysValue}");
+                Debug.Log($"{Time.realtimeSinceStartup}: In OnLoad. DataStorage.Values={ValuesValue}");
+                string[] keys = KeysValue != null ? KeysValue.Split(',') : null;
+                string[] values = ValuesValue != null ? ValuesValue.Split(',') : null;
 
-            for (int i = 0; i < keys.Length; i++)
-            {
-                float.TryParse(keys[i], out float value);
-                Debug.Log($"Virtual Storage mod, values list: {values}");
-                Debug.Log($"Virtual Storage mod, values list: {keys}");
-                Resources.Add(keys[i], value);
+                if (keys != null && values != null && keys.Length == values.Length)
+                {
+                    for (int i = 0; i < keys.Length; i++)
+                    {
+                        float.TryParse(values[i], out float value);
+                        Resources.Add(keys[i], value);
+                    }
+                }
             }
-
             UpdateVesselResources();
             UpdateGUIResourceAmount();
         }
         override public void OnSave(ConfigNode DataStorage) //Serializing list
         {
-            DataStorage.AddValue("Keys", string.Join(",", Resources.Keys));
-            DataStorage.AddValue("Values", string.Join(",", Resources.Values));
+            Debug.Log($"{Time.realtimeSinceStartup}: OnSave Called. Scene: {HighLogic.LoadedScene}");
+            Debug.Log($"{Time.realtimeSinceStartup}: In OnSave. Resources.Keys={string.Join(",", Resources.Keys)}");
+            Debug.Log($"{Time.realtimeSinceStartup}: In OnSave. Resources.Values={string.Join(",", Resources.Values)}");
+
+            ConfigNode storageNode = DataStorage.AddNode("VS_DataStorage");
+            storageNode.AddValue("VS_Keys", string.Join(",", Resources.Keys));
+            storageNode.AddValue("VS_Values", string.Join(",", Resources.Values));
         }
         #endregion
         #region Methods
@@ -138,7 +146,7 @@ namespace VirtualStorage
                 PopupBox($"Not enough free virtual storage");
             }
             else
-            { 
+            {
                 PopupBox($"Not enough {CurrentResource} in the vessel");
                 Debug.Log($"Time.realtimeSinceStartup- Virtual Storage mod: Not enough {CurrentResource} in the vessel");
             }
@@ -149,25 +157,6 @@ namespace VirtualStorage
         [KSPEvent(guiActive = true, guiName = "Extract Resource", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         private void RemoveResourceFromStorage()
         {
-            //if (Resources.ContainsKey(CurrentResource))
-            //{
-            //    switch (Resources[CurrentResource].CompareTo(RequestAmount))
-            //    {
-            //        case 1: // Resources[CurrentResource] > resourceAmount
-            //            this.vessel.RequestResource(this.part, CurrentResourceHash, -RequestAmount, true);
-            //            Resources[CurrentResource] -= Convert.ToSingle(RequestAmount);
-            //            break;
-
-            //        case 0: // Resources[CurrentResource] == resourceAmount
-            //            this.vessel.RequestResource(this.part, CurrentResourceHash, -RequestAmount, true);
-            //            Resources.Remove(CurrentResource);
-            //            break;
-
-            //        case -1: // Resources[CurrentResource] < resourceAmount
-            //            Debug.Log(Time.realtimeSinceStartup + "- Virtual Storage mod: Not enough " + CurrentResource + " in Virtual Storage");
-            //            break;
-            //    }
-            //}
             if (Resources.ContainsKey(CurrentResource))
             {
                 if (Resources[CurrentResource] > RequestAmount)
@@ -200,6 +189,8 @@ namespace VirtualStorage
         [KSPEvent(guiActive = true, guiName = "Virtual Storage- UpdateVesselResources", isPersistent = true, groupDisplayName = "Virtual Storage", groupName = "VirtualStorage")]
         private void UpdateVesselResources()
         {
+            Debug.Log($"{Time.realtimeSinceStartup}: In UpdateVesselResources. Resources.Keys={string.Join(",", Resources.Keys)}");
+            Debug.Log($"{Time.realtimeSinceStartup}: In UpdateVesselResources. Resources.Values={string.Join(",", Resources.Values)}");
             if (!HighLogic.LoadedSceneIsFlight) { return; }
             VesselResourceList.Clear();
             foreach (Part part in this.vessel.parts)
@@ -228,14 +219,15 @@ namespace VirtualStorage
             List<string> keysToRemove = new List<string>();
             foreach (string key in Resources.Keys)
             {
-                if (Resources[key] <= 0) { keysToRemove.Add(key); }
+                if (Resources[key] <= 0)
+                {
+                    keysToRemove.Add(key);
+                }
             }
-
-            foreach (string keyToRemove in keysToRemove)
+            foreach (string key in keysToRemove)
             {
-                Resources.Remove(keyToRemove);
+                Resources.Remove(key);
             }
-
             if (Resources.Count > 0)
             {
                 string _field = "";
