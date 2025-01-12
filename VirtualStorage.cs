@@ -258,6 +258,7 @@ namespace VirtualStorage
                 Fields["RequestAmount"].guiActive = true;
                 Events["AddResourceToStorage"].guiActive = true;
                 Events["RemoveResourceFromStorage"].guiActive = true;
+                Events["storageDeployed"].guiActive = false;
             }
             if (Resources.Count > 0)
             {
