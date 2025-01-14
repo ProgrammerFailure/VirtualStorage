@@ -85,6 +85,7 @@ namespace VirtualStorage
             ((UI_Cycle)Fields["CurrentResourceCycler"].uiControlFlight).onFieldChanged = UpdateGUIResourceAmount;
             ((UI_Toggle)Fields["storageDeployed"].uiControlFlight).onFieldChanged = DeployStorage;
             ResourceBlacklist = ResourceBlacklistString.Split(',');
+            if (storageDeployed) Fields["storageDeployed"].guiActive = false;
         }
         override public void OnLoad(ConfigNode DataStorage) //Deserializing list
         {
